@@ -15,10 +15,13 @@ import java.util.Map;
  */
 public class FileLoadUtility {
 	
+	public static final String REGEX = "[ ,\",.,(,),1-9,#,!]";
 	private static FileLoadUtility fileLoadUtility = null;
 	private Map<String, Integer> wordDict = null;
 	private Map<String, Integer> revWordDict = null;
 	private Map<String, Integer> commonWordDict = null;
+	private Map<String, Integer> filteredWordDict = null;
+	
 	private Integer uniqueWords = null;
 	private Integer totalWords = null;
 	private boolean sorted = false;
@@ -27,6 +30,7 @@ public class FileLoadUtility {
 	{
 		wordDict = new HashMap<>();
 		commonWordDict = new LinkedHashMap<>();
+		filteredWordDict = new HashMap<>();
 	}
 	
 	public static FileLoadUtility getFileLoadUtilityObj()
@@ -42,8 +46,7 @@ public class FileLoadUtility {
 	{
 		if(null == line)
 			return;
-		String regex = " ";
-		for(String wrd : line.split(regex))
+		for(String wrd : line.split(REGEX))
 		{
 			if(wrd.isEmpty())
 				continue;
@@ -76,9 +79,8 @@ public class FileLoadUtility {
 		}
 	}
 	
-	private void processFileFiltered(String filePath, Map<String, Integer> wordDict)
+	private void processFileFiltered(String filePath, Map<String, Integer> wordDict, Map<String, Integer> filteredWordDict)
 	{
-		String regex = " ";
 		String line = null;
 		File file = new File(filePath);
 		
@@ -87,15 +89,19 @@ public class FileLoadUtility {
 			while((line = br.readLine())!= null) 
 			{
 				if(null != line)
-				for(String wrd : line.split(regex))
+				for(String wrd : line.split(REGEX))
 				{
 					if(wrd.isEmpty())
 						continue;
 					Integer c = wordDict.get(wrd);
 					if(null == c)
-						continue;;
-					c++;
-					wordDict.put(wrd, c);
+					{
+						c = filteredWordDict.get(wrd);
+						if(null == c)
+							c = 0;
+						c++;
+						filteredWordDict.put(wrd, c);
+					}
 				}
 			}
 			br.close();
@@ -191,18 +197,18 @@ public class FileLoadUtility {
 				System.err.println(e.getMessage());
 			}
 			
-			processFileFiltered(filePath, commonWordDict);
+			processFileFiltered(filePath, commonWordDict, filteredWordDict);
 			Map<String, Integer> result = new LinkedHashMap<>();
-			commonWordDict.entrySet().stream()
+			filteredWordDict.entrySet().stream()
                 .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
                 .forEachOrdered(x -> result.put(x.getKey(), x.getValue()));
-			commonWordDict = result;
+			filteredWordDict = result;
 		}
 		
-		for(String word: commonWordDict.keySet())
+		for(String word: filteredWordDict.keySet())
 		{
 			freqWords[counter][0] = word;
-			freqWords[counter][1] = commonWordDict.get(word).toString();
+			freqWords[counter][1] = filteredWordDict.get(word).toString();
 			if(++counter == 20)
 				break;
 		}
