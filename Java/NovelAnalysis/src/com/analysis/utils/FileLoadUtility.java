@@ -5,6 +5,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * A singleton class that does word counting functions
@@ -14,13 +16,17 @@ import java.util.HashMap;
 public class FileLoadUtility {
 	
 	private static FileLoadUtility fileLoadUtility = null;
-	private HashMap<String, Integer> wordDict = null;
+	private Map<String, Integer> wordDict = null;
+	private Map<String, Integer> revWordDict = null;
+	private Map<String, Integer> commonWordDict = null;
 	private Integer uniqueWords = null;
 	private Integer totalWords = null;
+	private boolean sorted = false;
 	
 	private FileLoadUtility()
 	{
 		wordDict = new HashMap<>();
+		commonWordDict = new LinkedHashMap<>();
 	}
 	
 	public static FileLoadUtility getFileLoadUtilityObj()
@@ -32,13 +38,15 @@ public class FileLoadUtility {
 		return fileLoadUtility;
 	}
 	
-	private void populateHashMap(String line, HashMap<String, Integer> wordDict)
+	private void populateHashMap(String line, Map<String, Integer> wordDict)
 	{
 		if(null == line)
 			return;
 		String regex = " ";
 		for(String wrd : line.split(regex))
 		{
+			if(wrd.isEmpty())
+				continue;
 			Integer count = wordDict.get(wrd);
 			if(null == count)
 				count = 0;
@@ -51,7 +59,7 @@ public class FileLoadUtility {
 	 * This function processes file and creates the word dictionary for further usage
 	 * @param filePath
 	 */
-	private void processFile(String filePath)
+	private void processFile(String filePath, Map<String, Integer> wordDict)
 	{
 		String line = null;
 		File file = new File(filePath);
@@ -59,7 +67,6 @@ public class FileLoadUtility {
 			BufferedReader br = new BufferedReader(new FileReader(file));
 			while((line = br.readLine())!= null) 
 			{
-				line = br.readLine();
 				populateHashMap(line, wordDict);
 			}
 			br.close();
@@ -67,8 +74,35 @@ public class FileLoadUtility {
 			//e.printStackTrace();
 			System.err.println(e.getMessage());
 		}
-		totalWords = wordDict.values().stream().mapToInt(Integer::intValue).sum();
-		uniqueWords = wordDict.keySet().size();
+	}
+	
+	private void processFileFiltered(String filePath, Map<String, Integer> wordDict)
+	{
+		String regex = " ";
+		String line = null;
+		File file = new File(filePath);
+		
+		try {
+			BufferedReader br = new BufferedReader(new FileReader(file));
+			while((line = br.readLine())!= null) 
+			{
+				if(null != line)
+				for(String wrd : line.split(regex))
+				{
+					if(wrd.isEmpty())
+						continue;
+					Integer c = wordDict.get(wrd);
+					if(null == c)
+						continue;;
+					c++;
+					wordDict.put(wrd, c);
+				}
+			}
+			br.close();
+		} catch (IOException e) {
+			//e.printStackTrace();
+			System.err.println(e.getMessage());
+		}
 	}
 	
 	/**
@@ -79,7 +113,13 @@ public class FileLoadUtility {
 	public int getTotalNumberOfWords(String filePath)
 	{
 		if(null == totalWords)
-			processFile(filePath);
+		{
+			if(wordDict.size() == 0)
+			{
+				processFile(filePath, wordDict);
+			}
+			totalWords = wordDict.values().stream().mapToInt(Integer::intValue).sum();
+		}
 		return totalWords;
 	}
 	
@@ -91,12 +131,107 @@ public class FileLoadUtility {
 	public int getTotalUniqueWords(String filePath)
 	{
 		if(null == uniqueWords)
-			processFile(filePath);
+		{
+			if(wordDict.size() == 0)
+			{
+				processFile(filePath, wordDict);
+			}
+			uniqueWords = wordDict.keySet().size();
+		}
 		return uniqueWords;
 	}
 	
-	public void get20MostFrequentWords()
+	public String[][] get20MostFrequentWords(String filePath)
 	{
+		if(wordDict.size() == 0)
+		{
+			processFile(filePath, wordDict);
+		}
+		String[][] freqWords = new String[20][2];
+		if(!sorted)
+		{
+			Map<String, Integer> result = new LinkedHashMap<>();
+			wordDict.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEachOrdered(x -> result.put(x.getKey(), x.getValue()));
+			wordDict = result;
+			sorted = true;
+		}
+		int counter = 0;
+		for(String word: wordDict.keySet())
+		{
+			freqWords[counter][0] = word;
+			freqWords[counter][1] = wordDict.get(word).toString();
+			if(++counter == 20)
+				break;
+		}
+		return freqWords;
+	}
+	
+	public String[][] get20MostInterestingFrequentWords(String commonWordsFile, String filePath)
+	{
+		String[][] freqWords = new String[20][2];
+		int counter = 0;
 		
+		if(commonWordDict.size() == 0)
+		{	
+			String line = null;
+			File file = new File(commonWordsFile);
+			int count = 300;
+			try {
+				BufferedReader br = new BufferedReader(new FileReader(file));
+				while((line = br.readLine())!= null && count > 0) 
+				{
+					commonWordDict.put(line, 0);
+					count--;
+				}
+				br.close();
+			} catch (IOException e) {
+				//e.printStackTrace();
+				System.err.println(e.getMessage());
+			}
+			
+			processFileFiltered(filePath, commonWordDict);
+			Map<String, Integer> result = new LinkedHashMap<>();
+			commonWordDict.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+                .forEachOrdered(x -> result.put(x.getKey(), x.getValue()));
+			commonWordDict = result;
+		}
+		
+		for(String word: commonWordDict.keySet())
+		{
+			freqWords[counter][0] = word;
+			freqWords[counter][1] = commonWordDict.get(word).toString();
+			if(++counter == 20)
+				break;
+		}
+		return freqWords;
+	}
+	
+	public String[][] get20LeastFrequentWords(String filePath)
+	{
+		String[][] freqWords = new String[20][2];
+		int counter = 0;
+		if(wordDict.size() == 0)
+		{
+			processFile(filePath, wordDict);
+		}
+		if(null == revWordDict)
+		{
+			revWordDict = new LinkedHashMap<>();
+			wordDict.entrySet().stream()
+                .sorted(Map.Entry.<String, Integer>comparingByValue())
+                .forEachOrdered(x -> revWordDict.put(x.getKey(), x.getValue()));
+		}
+		
+		for(String word: revWordDict.keySet())
+		{
+			freqWords[counter][0] = word;
+			freqWords[counter][1] = revWordDict.get(word).toString();
+			if(++counter == 20)
+				break;
+		}
+		return freqWords;
 	}
 }
