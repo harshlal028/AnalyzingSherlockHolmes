@@ -6,11 +6,16 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ChapterAnalysisUtility {
 	
 	List<String> chapters = null;
+	Map<String, Integer> wordMaps = null;
+	Map<String, Integer> sortedwordMaps = null;
 	
 	public ChapterAnalysisUtility(String filePath) {
 		chapters = new ArrayList<>();
@@ -52,6 +57,7 @@ public class ChapterAnalysisUtility {
 				if(nextChapter == chapterList.size())
 					break;
 				tempStr.append(line);
+				tempStr.append(" ");
 				if(line.toLowerCase().contains(chapterList.get(nextChapter).toLowerCase()))
 				{
 					chapters.add(currentChapter, tempStr.toString());
@@ -87,6 +93,69 @@ public class ChapterAnalysisUtility {
 			res[i] = getFrequency(chapters.get(i), word);
 		}
 		return res;
+	}
+	
+	public int getChapterQuoteAppears(String quote)
+	{
+		quote = quote.replace("\r\n", " ");
+		int res = -1;
+		KMPalgorithm kmpalgo = new KMPalgorithm();
+		
+		for(int i=0; i<chapters.size(); i++)
+		{
+			if(kmpalgo.KMPSearch(quote, chapters.get(i)))
+			{
+				res = i+1;
+				break;
+			}
+		}
+		return res;
+	}
+	
+	public String generateSentence(int length)
+	{
+		String startword = "The";
+		String nxtWrd = null;
+		StringBuffer res = new StringBuffer(startword);
+		if(wordMaps == null)
+		{
+			wordMaps = new HashMap<>();
+			for(String chp : chapters)
+			{
+				String[] tmpArr = chp.split(" ");
+				for(int i=1; i<tmpArr.length; i++)
+				{
+					String key = tmpArr[i-1]+" "+tmpArr[i];
+					Integer val = wordMaps.get(key);
+					if(val == null)
+						val = 0;
+					val++;
+					wordMaps.put(key, val);
+				}
+			}
+			sortedwordMaps = new LinkedHashMap<>();
+			wordMaps.entrySet().stream()
+            .sorted(Map.Entry.<String, Integer>comparingByValue())
+            .forEachOrdered(x -> sortedwordMaps.put(x.getKey(), x.getValue()));
+		}
+		
+		List<String> keyList = new ArrayList<>(sortedwordMaps.keySet());
+		while(length > 0)
+		{
+			res.append(" ");
+			for(int i=0; i<keyList.size(); i++)
+			{
+				if(keyList.get(i).startsWith(startword))
+				{
+					nxtWrd = keyList.get(i).split(" ")[1];
+					break;
+				}
+			}
+			res.append(nxtWrd);
+			startword = nxtWrd;
+			length--;
+		}
+		return res.toString();	
 	}
 
 }
