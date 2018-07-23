@@ -7,15 +7,16 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 
 public class ChapterAnalysisUtility {
 	
 	List<String> chapters = null;
-	Map<String, Integer> wordMaps = null;
-	Map<String, Integer> sortedwordMaps = null;
+	Map<String, Set<String>> wordMaps = null;
 	
 	public ChapterAnalysisUtility(String filePath) {
 		chapters = new ArrayList<>();
@@ -115,7 +116,6 @@ public class ChapterAnalysisUtility {
 	public String generateSentence(int length)
 	{
 		String startword = "The";
-		String nxtWrd = null;
 		StringBuffer res = new StringBuffer(startword);
 		if(wordMaps == null)
 		{
@@ -125,34 +125,23 @@ public class ChapterAnalysisUtility {
 				String[] tmpArr = chp.split(" ");
 				for(int i=1; i<tmpArr.length; i++)
 				{
-					String key = tmpArr[i-1]+" "+tmpArr[i];
-					Integer val = wordMaps.get(key);
+					String key = tmpArr[i-1];
+					Set<String> val = wordMaps.get(key);
 					if(val == null)
-						val = 0;
-					val++;
+						val = new HashSet<>();
+					val.add(tmpArr[i]);
 					wordMaps.put(key, val);
 				}
 			}
-			sortedwordMaps = new LinkedHashMap<>();
-			wordMaps.entrySet().stream()
-            .sorted(Map.Entry.<String, Integer>comparingByValue())
-            .forEachOrdered(x -> sortedwordMaps.put(x.getKey(), x.getValue()));
 		}
 		
-		List<String> keyList = new ArrayList<>(sortedwordMaps.keySet());
 		while(length > 0)
 		{
 			res.append(" ");
-			for(int i=0; i<keyList.size(); i++)
-			{
-				if(keyList.get(i).startsWith(startword))
-				{
-					nxtWrd = keyList.get(i).split(" ")[1];
-					break;
-				}
-			}
-			res.append(nxtWrd);
-			startword = nxtWrd;
+			List<String> wrdMapping = new ArrayList<>(wordMaps.get(startword));
+			Random random = new Random();
+			startword = wrdMapping.get(random.nextInt(wrdMapping.size()));
+			res.append(startword);
 			length--;
 		}
 		return res.toString();	
